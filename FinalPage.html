@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <title>Histórias da Mãe — Obrigado</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{font-family:'Times New Roman',serif;max-width:800px;margin:40px auto;color:#222;line-height:1.6;padding:0 20px}
+    h1{color:#8c283c;text-align:center;font-size:2rem;margin-top:24px}
+    .lead{text-align:center;font-size:1.15rem;color:#333;margin-top:18px}
+    .date{text-align:center;color:#777;margin-top:36px}
+    button.print{position:fixed;top:14px;right:14px;padding:10px 14px;border-radius:8px;background:#8c283c;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.08)}
+    @media print{button.print{display:none}}
+  </style>
+</head>
+<body>
+  <button class="print" onclick="window.print()">Imprimir / Guardar PDF</button>
+  <h1>Obrigado.</h1>
+  <p class="lead">Obrigado por partilhares a tua vida. Este livro é o meu maior tesouro.</p>
+  <p class="date">19 de Janeiro de 2026</p>
+  <script>
+    // Abrir diálogo de impressão automaticamente (pequeno atraso para renderizar)
+    window.addEventListener('load', function(){ setTimeout(()=>{ try{ window.print() }catch(e){} }, 500) });
+  </script>
+</body>
+</html>
