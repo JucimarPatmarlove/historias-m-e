@@ -273,6 +273,7 @@
         <button class="btn-tool" onclick="downloadBackup()" title="Backup">💾 <span>Backup</span></button>
         <button class="btn-tool" onclick="restoreBackup()" title="Abrir">📂 <span>Abrir</span></button>
         <button class="btn-tool" onclick="exportPrintable()" title="PDF">🖨️ <span>PDF</span></button>
+        <button class="btn-tool" onclick="exportFinalPage()" title="Página Final">📄 <span>Página Final</span></button>
       </div>
       <div class="memory-usage"><div class="memory-bar" id="memBar"></div></div>
     </div>
@@ -300,7 +301,7 @@
   const bookData = [
     { 
       id: "intro", type: "text", 
-      title: "Querida Mãe,", 
+      title: "Querida Mãe:\", 
       text: "Este livro é um convite para viajarmos pelas tuas memórias. Escreve com calma, como se estivesses a conversar comigo.<br><br>As tuas palavras ficam guardadas automaticamente aqui." 
     },
     { 
@@ -594,132 +595,154 @@
   }
 
   /* --- BACKUP & PRINT --- */
-  function downloadBackup() {
-    const data = localStorage.getItem(storageKey) || "{}";
-    const blob = new Blob([data], {type: "application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "backup_memorias_mae_" + new Date().toISOString().slice(0,10) + ".json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast("Backup criado!", true);
-  }
+  function exportFinalPage() {
+    const page = bookData.find(p => p.id === 'fim');
+    if (!page) { alert('Página final não encontrada.'); return; }
 
-  function restoreBackup() { document.getElementById('json-input').click(); }
-
-  function handleRestore(input) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        JSON.parse(e.target.result); 
-        localStorage.setItem(storageKey, e.target.result);
-        alert("Restaurado com sucesso!");
-        location.reload();
-      } catch (err) { alert("Ficheiro inválido."); }
-    }
-    reader.readAsText(file);
-  }
-
-  function exportPrintable() {
-    const db = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    let content = `
-      <html><head><title>Histórias da Mãe</title>
+    const content = `
+      <html><head><meta charset="utf-8"><title>${page.title}</title>
       <style>
-        body { font-family: 'Times New Roman', serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #000; }
-        h1 { text-align: center; color: #8c283c; border-bottom: 1px solid #ccc; padding-bottom: 20px; }
-        .chapter { margin-bottom: 50px; page-break-inside: avoid; }
-        h2 { font-size: 1.5rem; color: #a0783c; margin-top: 30px; }
-        .q { font-weight: bold; margin-bottom: 10px; color: #333; }
-        .a { white-space: pre-wrap; text-align: justify; font-size: 1.1rem; }
-        img { max-width: 100%; max-height: 500px; border: 1px solid #ddd; margin-top: 15px; display: block; margin-left: auto; margin-right: auto; }
-        @media print { body { padding: 0; } }
+        body { font-family: 'Times New Roman', serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #000; line-height: 1.6; }
+        h1 { text-align: center; color: #8c283c; margin-bottom: 20px; }
+        .text { font-size: 1.2rem; text-align: center; color: #333; }
       </style>
       </head><body>
-      <div style="text-align:center; margin-bottom: 60px;">
-        <h1>Histórias da Mãe</h1>
-        <p>19 de Janeiro de 2026</p>
-      </div>
+        <h1>${page.title}</h1>
+        <div class="text">${page.text}</div>
+      </body></html>
     `;
 
-    bookData.forEach(page => {
-      if (page.type === 'input') {
-        const data = db[page.id] || {};
-        // Escape HTML for safety
-        const safeText = (data.text || '').replace(/</g, "&lt;").replace(/>/g, "&gt;") || '(Sem resposta)';
-        content += `<div class="chapter">
-          <h2>${page.title}</h2>
-          <div class="q">${page.label}</div>
-          <div class="a">${safeText}</div>
-          ${data.img ? `<img src="${data.img}">` : ''}
-        </div>`;
-      }
-    });
-
-    content += `</body></html>`;
     const win = window.open('', '_blank');
     win.document.write(content);
     win.document.close();
-    setTimeout(() => { win.print(); }, 800);
+    setTimeout(() => { win.print(); }, 500);
   }
+   function downloadBackup() {
+     const data = localStorage.getItem(storageKey) || "{}";
+     const blob = new Blob([data], {type: "application/json"});
+     const url = URL.createObjectURL(blob);
+     const a = document.createElement("a");
+     a.href = url;
+     a.download = "backup_memorias_mae_" + new Date().toISOString().slice(0,10) + ".json";
+     document.body.appendChild(a);
+     a.click();
+     document.body.removeChild(a);
+     URL.revokeObjectURL(url);
+     showToast("Backup criado!", true);
+   }
 
-  /* --- UTILS --- */
-  function setupSwipe() {
-    let ts = 0;
-    const el = document.getElementById('swipe-area');
-    el.addEventListener('touchstart', e => ts = e.changedTouches[0].screenX, false);
-    el.addEventListener('touchend', e => {
-      const te = e.changedTouches[0].screenX;
-      if (te < ts - 60) nextPage();
-      if (te > ts + 60) prevPage();
-    }, false);
-  }
+   function restoreBackup() { document.getElementById('json-input').click(); }
 
-  function checkStorageSpace() {
-    const raw = localStorage.getItem(storageKey) || "";
-    const pct = ((raw.length * 2) / 1024 / 1024 / 5) * 100;
-    const bar = document.getElementById('memBar');
-    bar.style.width = Math.min(pct, 100) + "%";
-    if (pct > 80) bar.classList.add('warning');
-  }
+   function handleRestore(input) {
+     const file = input.files[0];
+     if (!file) return;
+     const reader = new FileReader();
+     reader.onload = function(e) {
+       try {
+         JSON.parse(e.target.result); 
+         localStorage.setItem(storageKey, e.target.result);
+         alert("Restaurado com sucesso!");
+         location.reload();
+       } catch (err) { alert("Ficheiro inválido."); }
+     }
+     reader.readAsText(file);
+   }
 
-  function showToast(msg, force) {
-    const t = document.getElementById('toast');
-    t.innerText = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), force ? 2500 : 1500);
-  }
+   function exportPrintable() {
+     const db = JSON.parse(localStorage.getItem(storageKey) || '{}');
+     let content = `
+       <html><head><title>Histórias da Mãe</title>
+       <style>
+         body { font-family: 'Times New Roman', serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #000; }
+         h1 { text-align: center; color: #8c283c; border-bottom: 1px solid #ccc; padding-bottom: 20px; }
+         .chapter { margin-bottom: 50px; page-break-inside: avoid; }
+         h2 { font-size: 1.5rem; color: #a0783c; margin-top: 30px; }
+         .q { font-weight: bold; margin-bottom: 10px; color: #333; }
+         .a { white-space: pre-wrap; text-align: justify; font-size: 1.1rem; }
+         img { max-width: 100%; max-height: 500px; border: 1px solid #ddd; margin-top: 15px; display: block; margin-left: auto; margin-right: auto; }
+         @media print { body { padding: 0; } }
+       </style>
+       </head><body>
+       <div style="text-align:center; margin-bottom: 60px;">
+         <h1>Histórias da Mãe</h1>
+         <p>19 de Janeiro de 2026</p>
+       </div>
+     `;
 
-  function triggerConfetti() {
-    const canvas = document.getElementById('confetti-canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-    let particles = [];
-    for(let i=0; i<80; i++) particles.push({
-      x: Math.random()*canvas.width, y: -10, r: Math.random()*6+2, 
-      d: Math.random()*5+2, color: ['#8c283c','#a0783c','#e8e0d5'][Math.floor(Math.random()*3)], 
-      tilt: Math.floor(Math.random()*10)-10
-    });
-    let angle = 0;
-    function draw() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      angle += 0.01;
-      particles.forEach(p => {
-        p.y += (Math.cos(angle+p.d)+3+p.r/2)/2; p.x += Math.sin(angle);
-        ctx.beginPath(); ctx.lineWidth = p.r; ctx.strokeStyle = p.color;
-        ctx.moveTo(p.x+p.tilt, p.y); ctx.lineTo(p.x, p.y+p.tilt); ctx.stroke();
-      });
-      requestAnimationFrame(draw);
-    }
-    draw();
-    setTimeout(() => canvas.width=0, 4000);
-  }
+     bookData.forEach(page => {
+       if (page.type === 'input') {
+         const data = db[page.id] || {};
+         // Escape HTML for safety
+         const safeText = (data.text || '').replace(/</g, "&lt;").replace(/>/g, "&gt;") || '(Sem resposta)';
+         content += `<div class="chapter">
+           <h2>${page.title}</h2>
+           <div class="q">${page.label}</div>
+           <div class="a">${safeText}</div>
+           ${data.img ? `<img src="${data.img}">` : ''}
+         </div>`;
+       }
+     });
 
-  init();
+     content += `</body></html>`;
+     const win = window.open('', '_blank');
+     win.document.write(content);
+     win.document.close();
+     setTimeout(() => { win.print(); }, 800);
+   }
+
+   /* --- UTILS --- */
+   function setupSwipe() {
+     let ts = 0;
+     const el = document.getElementById('swipe-area');
+     el.addEventListener('touchstart', e => ts = e.changedTouches[0].screenX, false);
+     el.addEventListener('touchend', e => {
+       const te = e.changedTouches[0].screenX;
+       if (te < ts - 60) nextPage();
+       if (te > ts + 60) prevPage();
+     }, false);
+   }
+
+   function checkStorageSpace() {
+     const raw = localStorage.getItem(storageKey) || "";
+     const pct = ((raw.length * 2) / 1024 / 1024 / 5) * 100;
+     const bar = document.getElementById('memBar');
+     bar.style.width = Math.min(pct, 100) + "%";
+     if (pct > 80) bar.classList.add('warning');
+   }
+
+   function showToast(msg, force) {
+     const t = document.getElementById('toast');
+     t.innerText = msg;
+     t.classList.add('show');
+     setTimeout(() => t.classList.remove('show'), force ? 2500 : 1500);
+   }
+
+   function triggerConfetti() {
+     const canvas = document.getElementById('confetti-canvas');
+     const ctx = canvas.getContext('2d');
+     canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+     let particles = [];
+     for(let i=0; i<80; i++) particles.push({
+       x: Math.random()*canvas.width, y: -10, r: Math.random()*6+2, 
+       d: Math.random()*5+2, color: ['#8c283c','#a0783c','#e8e0d5'][Math.floor(Math.random()*3)], 
+       tilt: Math.floor(Math.random()*10)-10
+     });
+     let angle = 0;
+     function draw() {
+       ctx.clearRect(0,0,canvas.width,canvas.height);
+       angle += 0.01;
+       particles.forEach(p => {
+         p.y += (Math.cos(angle+p.d)+3+p.r/2)/2; p.x += Math.sin(angle);
+         ctx.beginPath(); ctx.lineWidth = p.r; ctx.strokeStyle = p.color;
+         ctx.moveTo(p.x+p.tilt, p.y); ctx.lineTo(p.x, p.y+p.tilt); ctx.stroke();
+       });
+       requestAnimationFrame(draw);
+     }
+     draw();
+     setTimeout(() => canvas.width=0, 4000);
+   }
+
+   init();
 </script>
 </body>
 </html>
