@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <title>Histórias da Mãe - O Nosso Livro</title>
+  
+  <!-- Otimizações PWA e Mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Um livro de memórias interativo.">
+  <meta name="theme-color" content="#fcfaf2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- Ícone -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>❤️</text></svg>">
+
+  <!-- Fontes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+
+  <style>
+    /* --- VARIÁVEIS --- */
+    :root {
+      --primary: #8c283c;
+      --secondary: #a0783c;
+      --bg-app: #e8e0d5;
+      --paper: #fcfaf2;
+      --ink: #2c2420;
+      --ink-light: #5d524d;
+      --success: #4a6b3c;
+      --warning: #d32f2f;
+      --shadow-soft: 0 15px 40px -10px rgba(60, 40, 30, 0.2);
+      --radius: 12px;
+      --font-title: 'Playfair Display', serif;
+      --font-body: 'Lora', serif;
+      --font-ui: 'Montserrat', sans-serif;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+    
+    body {
+      margin: 0; padding: 0;
+      background-color: var(--bg-app);
+      font-family: var(--font-body);
+      color: var(--ink);
+      height: 100vh; 
+      height: 100dvh; /* Altura real do dispositivo */
+      overflow: hidden; /* Impede scroll na página inteira */
+      display: flex;
+      flex-direction: column;
+      background-image: radial-gradient(#d6cbb8 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* --- LAYOUT DE APLICAÇÃO (Flex Column) --- */
+    .app-shell {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .book-card {
+      background: var(--paper);
+      width: 100%;
+      max-width: 850px;
+      height: 100%; 
+      max-height: 900px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column; /* Organiza Topo - Meio - Fundo */
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(160, 120, 60, 0.15);
+    }
+
+    /* --- TOPO (FIXO) --- */
+    .toolbar {
+      flex-shrink: 0; /* Não encolhe */
+      padding: 10px 20px;
+      background: #fff;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+      height: 60px;
+    }
+
+    .brand {
+      font-family: var(--font-title);
+      font-size: 1.2rem;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand span { font-size: 0.7rem; color: var(--secondary); font-family: var(--font-ui); letter-spacing: 1px; text-transform: uppercase; margin-top: 3px; }
+
+    .tools { display: flex; gap: 8px; }
+
+    .btn-tool {
+      background: #fdfdfd;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-family: var(--font-ui);
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      color: var(--ink-light);
+    }
+    .btn-tool:hover { background: #fbf0f2; color: var(--primary); border-color: var(--primary); }
+    .btn-tool span { display: none; } /* Texto escondido em mobile */
+    @media(min-width: 600px) { .btn-tool span { display: inline; } }
+
+    /* Indicador de Memória */
+    .memory-usage { position: absolute; bottom: 0; left: 0; height: 3px; background: #eee; width: 100%; }
+    .memory-bar { height: 100%; background: var(--success); width: 0%; transition: width 0.5s; }
+    .memory-bar.warning { background: var(--warning); }
+
+    /* --- MEIO (SCROLLÁVEL) --- */
+    .content-viewport {
+      flex-grow: 1; /* Ocupa todo o espaço disponível */
+      overflow-y: auto; /* Scroll apenas aqui */
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+      padding: 20px 20px 40px; /* Padding bottom extra */
+      position: relative;
+      /* Scrollbar suave */
+      scrollbar-width: thin;
+      scrollbar-color: var(--secondary) transparent;
+    }
+
+    .page-transition { animation: fadeSlideUp 0.5s ease-out; }
+    @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .chapter-header { text-align: center; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 1px solid rgba(160,120,60,0.2); }
+    .chapter-title { font-family: var(--font-title); font-size: 1.8rem; color: var(--primary); margin: 0; line-height: 1.2; }
+    .chapter-subtitle { font-family: var(--font-body); font-style: italic; color: var(--secondary); margin-top: 5px; font-size: 1rem; }
+
+    /* Inputs e Texto */
+    .input-group { position: relative; margin-bottom: 30px; }
+    label { display: block; font-family: var(--font-ui); font-weight: 600; color: var(--ink); margin-bottom: 10px; font-size: 1rem; }
+
+    textarea {
+      width: 100%;
+      min-height: 200px; /* Altura razoável */
+      padding: 0 15px;
+      padding-top: 6px;
+      border: none;
+      background: transparent;
+      background-image: linear-gradient(transparent 96%, #e0d0b0 96%);
+      background-size: 100% 2rem;
+      line-height: 2rem;
+      font-family: var(--font-body);
+      font-size: 1.2rem;
+      color: #1a1a1a;
+      resize: none; /* Mobile não precisa de resize */
+    }
+    textarea:focus { background-image: linear-gradient(transparent 96%, var(--primary) 96%); }
+
+    /* Microfone */
+    .mic-float {
+      position: absolute; top: -45px; right: 0;
+      background: #fff; border: 1px solid var(--secondary); color: var(--secondary);
+      padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-family: var(--font-ui); font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 5;
+    }
+    .mic-float.recording { background: var(--warning); color: white; border-color: var(--warning); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+    /* Fotos */
+    .photo-drop {
+      border: 2px dashed #d0c0a0; background: rgba(255,255,255,0.6);
+      border-radius: 12px; padding: 20px; text-align: center;
+      margin-top: 15px; cursor: pointer; position: relative;
+    }
+    .photo-preview { max-width: 100%; max-height: 300px; border-radius: 6px; border: 4px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-top: 10px; }
+    .btn-remove-photo {
+      position: absolute; top: 10px; right: 10px; background: #d32f2f; color: white; border: none;
+      width: 28px; height: 28px; border-radius: 50%; font-size: 14px; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* --- RODAPÉ (FIXO) --- */
+    .nav-bar {
+      flex-shrink: 0; /* Não encolhe */
+      padding: 10px 20px;
+      background: #fff;
+      border-top: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+      height: 70px;
+      box-shadow: 0 -5px 15px rgba(0,0,0,0.03); /* Sombra para separar do conteúdo */
+    }
+
+    .progress-info { font-family: var(--font-ui); font-size: 0.8rem; color: var(--ink-light); }
+
+    .nav-btn {
+      padding: 12px 24px;
+      border-radius: 50px;
+      border: none;
+      font-family: var(--font-ui);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: transform 0.1s;
+    }
+    .nav-btn:active { transform: scale(0.95); }
+    .btn-prev { background: #f2f0eb; color: var(--ink); }
+    .btn-next { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(140, 40, 60, 0.3); }
+
+    /* Toast */
+    #toast {
+      position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--ink); color: white; padding: 10px 20px; border-radius: 30px;
+      font-family: var(--font-ui); font-size: 0.85rem; opacity: 0; pointer-events: none; 
+      transition: all 0.3s; z-index: 200; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Confetti */
+    #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; }
+
+    /* MOBILE TWEAKS */
+    @media (max-width: 600px) {
+      .app-shell { padding: 0; }
+      .book-card { border-radius: 0; border: none; box-shadow: none; }
+      .toolbar { height: 50px; padding: 5px 15px; }
+      .nav-bar { padding: 10px 15px; height: 65px; }
+      .content-viewport { padding: 20px 20px 40px; }
+      .chapter-title { font-size: 1.6rem; }
+      .mic-float { position: relative; top: 0; right: 0; display: inline-flex; margin-bottom: 10px; }
+    }
+
+    /* PRINT */
+    @media print {
+      @page { size: A4; margin: 2cm; }
+      body { height: auto; overflow: visible; display: block; background: white; }
+      .app-shell, .book-card, .content-viewport { height: auto; width: 100%; display: block; overflow: visible; padding: 0; margin: 0; border: none; }
+      .toolbar, .nav-bar, .mic-float, .btn-remove-photo, #toast, .memory-usage { display: none !important; }
+      textarea { border: none; resize: none; background: none; min-height: 0; height: auto; overflow: visible; }
+      .photo-drop { border: none; padding: 0; margin: 20px 0; background: none; }
+      .photo-preview { border: 1px solid #ccc; box-shadow: none; transform: none; display: block; margin: 0 auto; }
+      .input-group { break-inside: avoid; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="toast">Guardado</div>
+<canvas id="confetti-canvas"></canvas>
+
+<div class="app-shell">
+  <div class="book-card" id="swipe-area">
+    
+    <!-- Topo -->
+    <div class="toolbar">
+      <div class="brand">Histórias da Mãe <span>| 2026</span></div>
+      <div class="tools">
+        <button class="btn-tool" onclick="downloadBackup()" title="Backup">💾 <span>Backup</span></button>
+        <button class="btn-tool" onclick="restoreBackup()" title="Abrir">📂 <span>Abrir</span></button>
+        <button class="btn-tool" onclick="exportPrintable()" title="PDF">🖨️ <span>PDF</span></button>
+      </div>
+      <div class="memory-usage"><div class="memory-bar" id="memBar"></div></div>
+    </div>
+
+    <!-- Área de Conteúdo (Scroll) -->
+    <div class="content-viewport" id="content">
+      <!-- Injetado por JS -->
+    </div>
+
+    <!-- Navegação (Fixa no Fundo) -->
+    <div class="nav-bar">
+      <div class="progress-info" id="page-indicator">1/12</div>
+      <div style="display:flex; gap:10px">
+        <button class="nav-btn btn-prev" id="btn-prev" onclick="changePage(-1)">←</button>
+        <button class="nav-btn btn-next" id="btn-next" onclick="changePage(1)">Continuar</button>
+      </div>
+    </div>
+
+    <input type="file" id="json-input" hidden accept=".json" onchange="handleRestore(this)">
+  </div>
+</div>
+
+<script>
+  /* --- CONTEÚDO DO LIVRO --- */
+  const bookData = [
+    { 
+      id: "intro", type: "text", 
+      title: "Querida Mãe,", 
+      text: "Este livro é um convite para viajarmos pelas tuas memórias. Escreve com calma, como se estivesses a conversar comigo.<br><br>As tuas palavras ficam guardadas automaticamente aqui." 
+    },
+    { 
+      id: "dedicatoria", type: "input", 
+      title: "Dedicatória", 
+      label: "Como te sentes hoje ao começar este livro?", 
+      placeholder: "Sinto-me...", 
+      photo: "Uma foto tua atual, se quiseres."
+    },
+    { 
+      id: "q1", type: "input", 
+      title: "A Menina", 
+      label: "1. Qual era a tua alcunha em criança e quem te chamava assim com mais carinho?", 
+      placeholder: "" 
+    },
+    { 
+      id: "q2", type: "input", 
+      title: "Raízes", 
+      label: "2. Fecha os olhos e lembra-te da casa onde cresceste. Que cheiros, sons e cores te vêm à memória?", 
+      placeholder: "O cheiro do pão, o chão de madeira...", 
+      photo: "Tens alguma foto da casa ou da tua infância?" 
+    },
+    { 
+      id: "q3", type: "input", 
+      title: "Juventude", 
+      label: "3. Qual foi o teu primeiro salário? Lembras-te no que gastaste esse dinheiro?", 
+      placeholder: "" 
+    },
+    { 
+      id: "q4", type: "input", 
+      title: "Música e Baile", 
+      label: "4. Que músicas definiram a tua geração? O que gostavas de dançar?", 
+      placeholder: "", 
+      photo: "Uma foto de um dia de festa." 
+    },
+    { 
+      id: "q5", type: "input", 
+      title: "O Amor", 
+      label: "5. Conta-me a versão real: como conheceste o Pai? Foi amor à primeira vista?", 
+      placeholder: "", 
+      photo: "Uma foto vossa do tempo de namoro." 
+    },
+    { 
+      id: "q6", type: "input", 
+      title: "Ser Mãe", 
+      label: "6. Qual foi o maior susto e a maior alegria de nos criar?", 
+      placeholder: "", 
+      photo: "Uma foto connosco ao colo." 
+    },
+    { 
+      id: "receita", type: "input", 
+      title: "Segredo de Família", 
+      label: "7. Qual é aquela receita que todos te pedem e só tu sabes fazer bem?", 
+      placeholder: "Ingredientes e segredos..." 
+    },
+    { 
+      id: "q7", type: "input", 
+      title: "Sabedoria", 
+      label: "8. Se pudesses voltar atrás e reviver apenas um dia da tua vida, qual escolherias?", 
+      placeholder: "" 
+    },
+    { 
+      id: "q8", type: "input", 
+      title: "Legado", 
+      label: "9. Que conselho deixas para os teus netos e bisnetos que ainda não nasceram?", 
+      placeholder: "" 
+    },
+    { 
+      id: "q9", type: "input", 
+      title: "Nós", 
+      label: "10. Qual a tua memória favorita de nós os dois?", 
+      placeholder: "", 
+      photo: "A nossa melhor foto juntos." 
+    },
+    { 
+      id: "fim", type: "text", 
+      title: "Obrigado.", 
+      text: "Obrigado por partilhares a tua vida. Este livro é o meu maior tesouro.<br><br>Clica no botão <b>PDF</b> ou <b>Backup</b> lá em cima para guardar tudo." 
+    }
+  ];
+
+  /* --- SISTEMA --- */
+  let currentPage = 0;
+  const storageKey = "memorias_mae_v3";
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const hasSpeech = !!SpeechRecognition;
+  let recognition = null;
+  let wakeLock = null;
+
+  function init() {
+    checkStorageSpace();
+    loadPage(0);
+    setupSwipe();
+    requestWakeLock();
+    // Reativar wakelock se sair e voltar
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
+    });
+  }
+
+  async function requestWakeLock() {
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+  }
+
+  function loadPage(index) {
+    const container = document.getElementById('content');
+    container.style.opacity = 0; // Fade out
+
+    setTimeout(() => {
+      currentPage = index;
+      const page = bookData[index];
+      const savedData = getStoredData(page.id);
+
+      let html = `<div class="page-transition">`;
+      html += `<div class="chapter-header">
+                 <h2 class="chapter-title">${page.title}</h2>
+                 ${page.type === 'input' ? '<div class="chapter-subtitle">Capítulo ' + index + '</div>' : ''}
+               </div>`;
+
+      if (page.type === 'text') {
+        html += `<p style="font-size:1.3rem; line-height:1.8; text-align:center; max-width:650px; margin:0 auto; color:var(--ink-light)">${page.text}</p>`;
+        if(page.id === 'fim') triggerConfetti();
+      } else {
+        // Texto
+        html += `<div class="input-group">
+                   <label>${page.label}</label>
+                   ${hasSpeech ? `<button class="mic-float" onclick="toggleMic(this, '${page.id}')">🎙️ Ditar</button>` : ''}
+                   <textarea id="inp_${page.id}" placeholder="${page.placeholder}" oninput="autoSave('${page.id}')">${savedData.text || ''}</textarea>
+                 </div>`;
+        
+        // Foto
+        if (page.photo) {
+          html += `<div class="input-group">
+                     <label>${page.photo}</label>
+                     <div class="photo-drop" onclick="triggerPhoto('${page.id}')">
+                       <input type="file" id="file_${page.id}" hidden accept="image/*" onchange="processPhoto(this, '${page.id}')">
+                       ${savedData.img 
+                         ? `<div style="position:relative; display:inline-block;">
+                              <img src="${savedData.img}" class="photo-preview">
+                              <button class="btn-remove-photo" onclick="removePhoto(event, '${page.id}')">✕</button>
+                            </div>` 
+                         : `<span style="font-size:2rem;display:block;margin-bottom:5px;">📷</span>
+                            <span style="font-family:var(--font-ui);font-size:0.9rem;color:var(--secondary)">Toque para adicionar foto</span>`}
+                     </div>
+                   </div>`;
+        }
+      }
+      
+      html += `</div>`;
+      container.innerHTML = html;
+      container.scrollTop = 0; // Reset scroll do conteúdo
+      container.style.opacity = 1; // Fade in
+
+      // Atualizar Botões
+      document.getElementById('page-indicator').innerText = `${index + 1}/${bookData.length}`;
+      document.getElementById('btn-prev').style.visibility = index === 0 ? 'hidden' : 'visible';
+      
+      const btnNext = document.getElementById('btn-next');
+      if (index === bookData.length - 1) {
+        btnNext.innerHTML = "Início ↺";
+        btnNext.onclick = () => loadPage(0);
+        btnNext.style.backgroundColor = "#555";
+      } else {
+        btnNext.innerHTML = "Continuar →";
+        btnNext.onclick = nextPage;
+        btnNext.style.backgroundColor = "var(--primary)";
+      }
+    }, 150);
+  }
+
+  function changePage(dir) {
+    if (recognition) recognition.stop();
+    // Limpar estado visual do microfone
+    document.querySelectorAll('.mic-float').forEach(b => {
+      b.classList.remove('recording');
+      b.innerHTML = "🎙️ Ditar";
+    });
+    
+    const next = currentPage + dir;
+    if (next >= 0 && next < bookData.length) loadPage(next);
+  }
+  function nextPage() { changePage(1); }
+  function prevPage() { changePage(-1); }
+
+  /* --- DATA & STORAGE --- */
+  function getStoredData(id) {
+    const db = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    return db[id] || {};
+  }
+
+  function autoSave(id) {
+    const textVal = document.getElementById(`inp_${id}`).value;
+    const db = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    if (!db[id]) db[id] = {};
+    db[id].text = textVal;
+    
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(db));
+      showToast("A guardar...", false);
+      checkStorageSpace();
+    } catch (e) {
+      alert("Memória cheia! Tenta apagar algumas fotos.");
+    }
+  }
+
+  function saveImageToDb(id, base64) {
+    const db = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    if (!db[id]) db[id] = {};
+    db[id].img = base64;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(db));
+      checkStorageSpace();
+      loadPage(currentPage);
+      showToast("Foto guardada!", true);
+    } catch (e) {
+      alert("Foto demasiado grande para este navegador.");
+    }
+  }
+
+  /* --- FOTOS --- */
+  function triggerPhoto(id) { document.getElementById(`file_${id}`).click(); }
+
+  function processPhoto(input, id) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const MAX_W = 800; // Resize agressivo para mobile
+        const scale = MAX_W / img.width;
+        const w = (scale < 1) ? MAX_W : img.width;
+        const h = (scale < 1) ? img.height * scale : img.height;
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 60% qualidade
+        saveImageToDb(id, dataUrl);
+      }
+      img.src = e.target.result;
+    }
+    reader.readAsDataURL(file);
+  }
+
+  function removePhoto(e, id) {
+    e.stopPropagation();
+    if(!confirm("Apagar foto?")) return;
+    const db = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    if(db[id]) delete db[id].img;
+    localStorage.setItem(storageKey, JSON.stringify(db));
+    loadPage(currentPage);
+  }
+
+  /* --- MIC --- */
+  function toggleMic(btn, id) {
+    if (!hasSpeech) return;
+    const field = document.getElementById(`inp_${id}`);
+    
+    if (!recognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'pt-PT';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onresult = (event) => {
+        let final = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) final += event.results[i][0].transcript + " ";
+        }
+        if (final) {
+          if (field.value && !field.value.endsWith(' ')) field.value += ' ';
+          field.value += final;
+          autoSave(id);
+        }
+      };
+      recognition.onend = () => {
+        document.querySelectorAll('.mic-float').forEach(b => {
+          b.classList.remove('recording');
+          b.innerHTML = "🎙️ Ditar";
+        });
+      };
+    }
+
+    if (btn.classList.contains('recording')) {
+      recognition.stop();
+    } else {
+      btn.classList.add('recording');
+      btn.innerHTML = "🛑 A escutar...";
+      recognition.start();
+    }
+  }
+
+  /* --- BACKUP & PRINT --- */
+  function downloadBackup() {
+    const data = localStorage.getItem(storageKey) || "{}";
+    const blob = new Blob([data], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "backup_memorias_mae_" + new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Backup criado!", true);
+  }
+
+  function restoreBackup() { document.getElementById('json-input').click(); }
+
+  function handleRestore(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        JSON.parse(e.target.result); 
+        localStorage.setItem(storageKey, e.target.result);
+        alert("Restaurado com sucesso!");
+        location.reload();
+      } catch (err) { alert("Ficheiro inválido."); }
+    }
+    reader.readAsText(file);
+  }
+
+  function exportPrintable() {
+    const db = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    let content = `
+      <html><head><title>Histórias da Mãe</title>
+      <style>
+        body { font-family: 'Times New Roman', serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #000; }
+        h1 { text-align: center; color: #8c283c; border-bottom: 1px solid #ccc; padding-bottom: 20px; }
+        .chapter { margin-bottom: 50px; page-break-inside: avoid; }
+        h2 { font-size: 1.5rem; color: #a0783c; margin-top: 30px; }
+        .q { font-weight: bold; margin-bottom: 10px; color: #333; }
+        .a { white-space: pre-wrap; text-align: justify; font-size: 1.1rem; }
+        img { max-width: 100%; max-height: 500px; border: 1px solid #ddd; margin-top: 15px; display: block; margin-left: auto; margin-right: auto; }
+        @media print { body { padding: 0; } }
+      </style>
+      </head><body>
+      <div style="text-align:center; margin-bottom: 60px;">
+        <h1>Histórias da Mãe</h1>
+        <p>19 de Janeiro de 2026</p>
+      </div>
+    `;
+
+    bookData.forEach(page => {
+      if (page.type === 'input') {
+        const data = db[page.id] || {};
+        // Escape HTML for safety
+        const safeText = (data.text || '').replace(/</g, "&lt;").replace(/>/g, "&gt;") || '(Sem resposta)';
+        content += `<div class="chapter">
+          <h2>${page.title}</h2>
+          <div class="q">${page.label}</div>
+          <div class="a">${safeText}</div>
+          ${data.img ? `<img src="${data.img}">` : ''}
+        </div>`;
+      }
+    });
+
+    content += `</body></html>`;
+    const win = window.open('', '_blank');
+    win.document.write(content);
+    win.document.close();
+    setTimeout(() => { win.print(); }, 800);
+  }
+
+  /* --- UTILS --- */
+  function setupSwipe() {
+    let ts = 0;
+    const el = document.getElementById('swipe-area');
+    el.addEventListener('touchstart', e => ts = e.changedTouches[0].screenX, false);
+    el.addEventListener('touchend', e => {
+      const te = e.changedTouches[0].screenX;
+      if (te < ts - 60) nextPage();
+      if (te > ts + 60) prevPage();
+    }, false);
+  }
+
+  function checkStorageSpace() {
+    const raw = localStorage.getItem(storageKey) || "";
+    const pct = ((raw.length * 2) / 1024 / 1024 / 5) * 100;
+    const bar = document.getElementById('memBar');
+    bar.style.width = Math.min(pct, 100) + "%";
+    if (pct > 80) bar.classList.add('warning');
+  }
+
+  function showToast(msg, force) {
+    const t = document.getElementById('toast');
+    t.innerText = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), force ? 2500 : 1500);
+  }
+
+  function triggerConfetti() {
+    const canvas = document.getElementById('confetti-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    let particles = [];
+    for(let i=0; i<80; i++) particles.push({
+      x: Math.random()*canvas.width, y: -10, r: Math.random()*6+2, 
+      d: Math.random()*5+2, color: ['#8c283c','#a0783c','#e8e0d5'][Math.floor(Math.random()*3)], 
+      tilt: Math.floor(Math.random()*10)-10
+    });
+    let angle = 0;
+    function draw() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      angle += 0.01;
+      particles.forEach(p => {
+        p.y += (Math.cos(angle+p.d)+3+p.r/2)/2; p.x += Math.sin(angle);
+        ctx.beginPath(); ctx.lineWidth = p.r; ctx.strokeStyle = p.color;
+        ctx.moveTo(p.x+p.tilt, p.y); ctx.lineTo(p.x, p.y+p.tilt); ctx.stroke();
+      });
+      requestAnimationFrame(draw);
+    }
+    draw();
+    setTimeout(() => canvas.width=0, 4000);
+  }
+
+  init();
+</script>
+</body>
+</html>
